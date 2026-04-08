@@ -1,0 +1,161 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth (Better Auth) ──────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions  Session[]
+  accounts  Account[]
+  playlists Playlist[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ── App ─────────────────────────────────────────────────────
+
+model Playlist {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tracks Track[]
+  rooms  Room[]
+}
+
+model Track {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  youtubeUrl String
+  youtubeId  String
+  title      String
+  artist     String?
+  order      Int      @default(0)
+
+  rounds Round[]
+}
+
+model Room {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  hostId            String
+  status            String   @default("LOBBY")
+  currentTrackIndex Int      @default(-1)
+  playlistId        String?
+  mode              String   @default("oral")
+  isTeamMode        Boolean  @default(false)
+  extractDuration   Int      @default(15)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  playlist Playlist? @relation(fields: [playlistId], references: [id])
+  players  Player[]
+  teams    Team[]
+  rounds   Round[]
+}
+
+model Player {
+  id        String   @id @default(cuid())
+  socketId  String   @unique
+  name      String
+  roomId    String
+  teamId    String?
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  team   Team?  @relation(fields: [teamId], references: [id])
+  buzzes Buzz[]
+}
+
+model Team {
+  id     String @id @default(cuid())
+  name   String
+  roomId String
+  score  Int    @default(0)
+
+  room    Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  players Player[]
+  buzzes  Buzz[]
+}
+
+model Round {
+  id           String   @id @default(cuid())
+  roomId       String
+  trackId      String
+  pointAwarded Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  track  Track  @relation(fields: [trackId], references: [id])
+  buzzes Buzz[]
+}
+
+model Buzz {
+  id         String   @id @default(cuid())
+  roundId    String
+  playerId   String
+  teamId     String?
+  order      Int
+  wasCorrect Boolean?
+  buzzedAt   DateTime @default(now())
+
+  round  Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+  team   Team?  @relation(fields: [teamId], references: [id])
+}

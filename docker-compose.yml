@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: blindtest
+      POSTGRES_PASSWORD: blindtest
+      POSTGRES_DB: blindtest
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.dev
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://blindtest:blindtest@db:5432/blindtest
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./server/src:/app/server/src
+    depends_on:
+      - db
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile.dev
+    environment:
+      VITE_NODE_ENV: development
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client/src:/app/client/src
+      - ./client/index.html:/app/client/index.html
+      - ./client/vite.config.js:/app/client/vite.config.js
+    depends_on:
+      - server
+
+volumes:
+  pg_data:
